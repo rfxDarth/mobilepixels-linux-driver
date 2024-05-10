@@ -1,0 +1,14 @@
+[Unit]
+Description=Run T6evdi jobs at resume
+After=suspend.target
+After=hibernate.target
+After=hybrid-sleep.target
+
+[Service]
+ExecStart=/usr/sbin/T6contrl -d 1
+
+[Install]
+WantedBy=suspend.target
+WantedBy=hibernate.target
+WantedBy=hybrid-sleep.target
+

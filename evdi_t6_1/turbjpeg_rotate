@@ -1,0 +1,43 @@
+使用 libjpeg-turbo 无损转换图片的代码如下：
+
+#include "turbojpeg.h"
+
+// Create a new TurboJPEG transformer instance
+tjhandle h = tjInitTramsform();
+if (h !=  nullptr) 
+{
+    // 读取jpeg图像
+    unsigned char *jpegBuf = nullptr;
+    unsigned long jpegSize = 0;
+    __readfile(&jpegBuf, jpegSize);
+
+    // 分配目的buffer
+    unsigned long dstSizes = 0;
+    unsigned char* dstBufs = nullptr;  // dstBufs 为 nullptr， tjTransform()会自动内存
+
+    // tjtransform struct
+    tjtransform transform;
+    transform.op = TJXOP_NONE; // TJXOP_NONE TJXOP_ROT270 // TJXOP_NONE TJXOP_ROT90;
+    transform.options = TJXOPT_TRIM; //TJXOPT_PERFECT
+    transform.data = 0;
+    transform.customFilter = 0;
+    
+    // 无损转换
+    int rel = tjTransform(h, jpegBuf, jpegSize, 1, &dstBufs, &dstSizes, &transform, TJFLAG_ACCURATEDCT);
+    if (rel != 0)
+    {
+        char* err = tjGetErrorStr();
+    }
+    
+    // 保存图片
+    __writeFile(...)
+
+    // 释放dstBufs
+    if (dstSizes != 0)
+        tjFree(dstBufs);
+    // 释放jpegBuf
+    free(jpegBuf);
+
+    // Destroy a TurboJPEG transformer instance
+    tjDestroy(h);
+}
