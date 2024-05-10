@@ -30,6 +30,9 @@
 
 
 int g_program_exit = 0;
+bool ready_flag = true;
+pthread_mutex_t ready_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t ready_cond = PTHREAD_COND_INITIALIZER;
 pid_t pid ;
 libusb_context *ctx = NULL;
 //struct T6evdi *g_t6para;
@@ -53,8 +56,31 @@ static const unsigned char generic_edid[]={
 	0x32, 0x41, 0x32, 0x39, 0x36, 0x30, 0x31, 0x37, 0x39, 0x31, 0x00, 0x00, 0x00, 0xfd, 0x00, 0x37,
 	0x4c, 0x1e, 0x52, 0x11, 0x00, 0x0a, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20, 0x00, 0x00, 0x00, 0xfc,
 	//0x00, 0x47, 0x65, 0x6e, 0x75, 0x69, 0x6e, 0x65, 0x32, 0x31, 0x2e, 0x35, 0x27, 0x27, 0x00, 0x77
-	0x00, 0x47, 0x65, 0x6e, 0x65, 0x72, 0x69, 0x63, 0x32, 0x31, 0x2e, 0x35, 0x27, 0x27, 0x00, 0xa7
+	0x00, 0x47, 0x65, 0x6e, 0x65, 0x72, 0x69, 0x63, 0x32, 0x31, 0x2e, 0x35, 0x27a, 0x27, 0x00, 0xa7
 };
+
+
+void wait_ready()
+{
+  pthread_mutex_lock(&ready_mutex);
+  while(!ready_flag) {
+    pthread_cond_wait(&ready_cond, &ready_mutex);
+  }
+  pthread_mutex_unlock(&ready_mutex);
+}
+
+
+void set_ready(bool ready)
+{
+  pthread_mutex_lock(&ready_mutex);
+  ready_flag = ready;
+
+  pthread_cond_signal(&ready_cond);
+// or using pthread_cond_broadcast(&ready_cond);
+
+  pthread_mutex_unlock(&ready_mutex);
+
+}
 
 
 #if 0
@@ -324,7 +350,7 @@ int pullaudio_buffer(char *audiobuffer)
 	struct libusb_device_descriptor desc;
 	int rc = libusb_get_device_descriptor( dev, &desc );
 
-	if( LIBUSB_SUCCESS == rc && desc.idVendor == 0x0711 && (desc.idProduct == 0x5600 || desc.idProduct == 0x5601 || desc.idProduct == 0x560b || desc.idProduct == 0x5621|| desc.idProduct == 0x5609|| desc.idProduct == 0x562b))
+	if( LIBUSB_SUCCESS == rc && desc.idVendor == 0x0711 && (desc.idProduct == 0x5600 || desc.idProduct == 0x5601 || desc.idProduct == 0x5621 || desc.idProduct == 0x5609 || desc.idProduct == 0x560b || desc.idProduct == 0x562b))
     	return 1;
 	else if(LIBUSB_SUCCESS == rc && desc.idVendor == 0x03f0 && desc.idProduct == 0x0182)	
 		return 1;
@@ -540,7 +566,7 @@ void mct_mode_changed_handler(struct evdi_mode mode, void* user_data)
 
 void mct_update_ready_handler(int buffer_to_be_updated, void* user_data)
 {
-
+	set_ready(true);
 }
 void mct_crtc_state_handler(int state, void* user_data)
 {
@@ -1157,106 +1183,104 @@ void* evdi_process(void *userdata)
 			usleep(10);
 			continue;
 	    }
-		
-		if(evdi_request_update(pt6evdi->ev_handle, pt6evdi->display_id)) {
-			
-			
-			struct evdi_rect rects[MAX_DIRTS];
-			int rect_count=0;
-			int i = 0 ;
-#if 0			
-			pthread_mutex_lock(&pt6evdi->image_mutex);
-			if(pt6evdi->jpg_work_process == 1){
-				pt6evdi->jpg_work_process = 0 ;
-				pthread_mutex_unlock(&pt6evdi->image_mutex);
-				continue;
-			}	
-#endif
-			evdi_grab_pixels(pt6evdi->ev_handle, rects, &rect_count);
-            //DEBUG_PRINT ("evdi_grab_pixels!\n");
-			
-			#if 0	
-			DEBUG_PRINT("rect_count = %d \n",rect_count);
-			for(i = 0 ; i < rect_count ; i++){
-				DEBUG_PRINT("x1 = %d x2= %d y1=%d y2 =%d\n",rects[i].x1,rects[i].x2,rects[i].y1,rects[i].y2);
-			}
-			#endif
-			//int rgb_size = pt6evdi->Width* pt6evdi->Height* 4; 
-			if(rect_count > 0){
-                //DEBUG_PRINT ("evdi_request_update s\n");
-			
-		        if(list_size(&pt6evdi->jpg_list_queue) < 5 ){
-					unsigned long jpgImageSize = 0;
-					unsigned long tjpgImageSize = 0;
-					char *jpgImage = NULL;
-					char *tjpgImage = NULL;
-					
-					struct jpg_packet *jpacket = (struct jpg_packet *)malloc(sizeof(struct jpg_packet));
-					if(jpacket != NULL){
-				   		tjhandle jpegCompressor = tjInitCompress();
-				   		tjCompress2(jpegCompressor,pt6evdi->video_buffer, pt6evdi->Width, 0,pt6evdi->Height, TJPF_BGRA,
-	          							(unsigned char**)&jpgImage, &jpgImageSize, TJSAMP_420, 95, TJFLAG_FASTDCT );				
-				   		tjDestroy(jpegCompressor);
-				      
-						if(pt6evdi->jpg_rotate > 0 &&  pt6evdi->jpg_rotate < 4){
-					        tjhandle jpegtramform = tjInitTransform();
-							tjtransform transform;
-							if(pt6evdi->jpg_rotate == 1)
-						    	transform.op = TJXOP_ROT90; // TJXOP_NONE TJXOP_ROT270 // TJXOP_NONE TJXOP_ROT90;
-						   if(pt6evdi->jpg_rotate ==  2)
-                                transform.op = TJXOP_ROT180;
-							if(pt6evdi->jpg_rotate == 3)
-                                transform.op = TJXOP_ROT270;
-							 
-						    transform.options =TJXOPT_TRIM ; 
-						    transform.data = NULL;
-						    transform.customFilter = NULL;
-                            int rel = tjTransform(jpegtramform, jpgImage, jpgImageSize, 1,(unsigned char**) &tjpgImage, &tjpgImageSize, &transform, TJFLAG_ACCURATEDCT);
-							tjDestroy(jpegtramform);
-							free(jpgImage);
-							if (rel != 0)
-							{
-							    char* err = tjGetErrorStr();
-							    printf("ret = %d error = %s tjpgImageSize = %ld \n",ret,err,tjpgImageSize);
+            wait_ready();
+			if(evdi_request_update(pt6evdi->ev_handle, pt6evdi->display_id)) {
+				
+				
+				struct evdi_rect rects[MAX_DIRTS];
+				int rect_count=0;
+				int i = 0 ;
+	#if 0			
+				pthread_mutex_lock(&pt6evdi->image_mutex);
+				if(pt6evdi->jpg_work_process == 1){
+					pt6evdi->jpg_work_process = 0 ;
+					pthread_mutex_unlock(&pt6evdi->image_mutex);
+					continue;
+				}	
+	#endif
+				evdi_grab_pixels(pt6evdi->ev_handle, rects, &rect_count);
+		    //DEBUG_PRINT ("evdi_grab_pixels!\n");
+				
+				#if 0	
+				DEBUG_PRINT("rect_count = %d \n",rect_count);
+				for(i = 0 ; i < rect_count ; i++){
+					DEBUG_PRINT("x1 = %d x2= %d y1=%d y2 =%d\n",rects[i].x1,rects[i].x2,rects[i].y1,rects[i].y2);
+				}
+				#endif
+				//int rgb_size = pt6evdi->Width* pt6evdi->Height* 4; 
+				if(rect_count > 0){
+		        //DEBUG_PRINT ("evdi_request_update s\n");
+				
+				if(list_size(&pt6evdi->jpg_list_queue) < 5 ){
+						unsigned long jpgImageSize = 0;
+						unsigned long tjpgImageSize = 0;
+						char *jpgImage = NULL;
+						char *tjpgImage = NULL;
+						
+						struct jpg_packet *jpacket = (struct jpg_packet *)malloc(sizeof(struct jpg_packet));
+						if(jpacket != NULL){
+					   		tjhandle jpegCompressor = tjInitCompress();
+					   		tjCompress2(jpegCompressor,pt6evdi->video_buffer, pt6evdi->Width, 0,pt6evdi->Height, TJPF_BGRA,
+			  							(unsigned char**)&jpgImage, &jpgImageSize, TJSAMP_420, 95, TJFLAG_FASTDCT );				
+					   		tjDestroy(jpegCompressor);
+					      
+							if(pt6evdi->jpg_rotate > 0 &&  pt6evdi->jpg_rotate < 4){
+							tjhandle jpegtramform = tjInitTransform();
+								tjtransform transform;
+								if(pt6evdi->jpg_rotate == 1)
+							    	transform.op = TJXOP_ROT90; // TJXOP_NONE TJXOP_ROT270 // TJXOP_NONE TJXOP_ROT90;
+							   if(pt6evdi->jpg_rotate ==  2)
+		                        transform.op = TJXOP_ROT180;
+								if(pt6evdi->jpg_rotate == 3)
+		                        transform.op = TJXOP_ROT270;
+								 
+							    transform.options =TJXOPT_TRIM ; 
+							    transform.data = NULL;
+							    transform.customFilter = NULL;
+		                    int rel = tjTransform(jpegtramform, jpgImage, jpgImageSize, 1,(unsigned char**) &tjpgImage, &tjpgImageSize, &transform, TJFLAG_ACCURATEDCT);
+								tjDestroy(jpegtramform);
+								free(jpgImage);
+								if (rel != 0)
+								{
+								    char* err = tjGetErrorStr();
+								    printf("ret = %d error = %s tjpgImageSize = %ld \n",ret,err,tjpgImageSize);
+								}else{
+								 	
+									//t6_save_file(tjpgImage,tjpgImageSize);
+									jpacket->jpgImageSize = tjpgImageSize;
+								jpacket->buffer = tjpgImage;
+									pthread_mutex_lock(&pt6evdi->bulkusb_mutex);
+									list_append(&pt6evdi->jpg_list_queue,jpacket);
+									pthread_mutex_unlock(&pt6evdi->bulkusb_mutex);	
+									
+								 }	
+								
+								
+								
+								
 							}else{
-							 	
-								//t6_save_file(tjpgImage,tjpgImageSize);
-								jpacket->jpgImageSize = tjpgImageSize;
-			        			jpacket->buffer = tjpgImage;
+					
+							
+								jpacket->jpgImageSize = jpgImageSize;
+							jpacket->buffer = jpgImage;
 								pthread_mutex_lock(&pt6evdi->bulkusb_mutex);
 								list_append(&pt6evdi->jpg_list_queue,jpacket);
-								pthread_mutex_unlock(&pt6evdi->bulkusb_mutex);	
-								
-							 }	
+								pthread_mutex_unlock(&pt6evdi->bulkusb_mutex);
+							}
+							//queue_add(pt6evdi->jpg_queue,(void *) jpacket);
 							
 							
 							
-							
-						}else{
-		        	
-						
-							jpacket->jpgImageSize = jpgImageSize;
-			        		jpacket->buffer = jpgImage;
-							pthread_mutex_lock(&pt6evdi->bulkusb_mutex);
-							list_append(&pt6evdi->jpg_list_queue,jpacket);
-							pthread_mutex_unlock(&pt6evdi->bulkusb_mutex);
 						}
-						//queue_add(pt6evdi->jpg_queue,(void *) jpacket);
-						
-						
-						
-					}
-		        }
-				//DEBUG_PRINT ("evdi_request_update e\n");
+				}
+					//DEBUG_PRINT ("evdi_request_update e\n");
+				}
+				
+				//pthread_mutex_unlock(&pt6evdi->image_mutex);
+			}else{
+				set_ready(false);
+				usleep(1000);
 			}
-			
-			//pthread_mutex_unlock(&pt6evdi->image_mutex);
-		}else{
-			usleep(500);
-		}
-		
-		
-
 
 	}
 	
@@ -1439,7 +1463,7 @@ static void EnumT6Device (){
 			}
         */ 
 			if((ret = libusb_claim_interface(t6usbdev, 0)) != 0) {
-				DEBUG_PRINT("T6: %s: libusb_claim_interface 0 failed(%s)\n", __func__, libusb_strerror(ret));
+				//DEBUG_PRINT("T6: %s: libusb_claim_interface 0 failed(%s)\n", __func__, libusb_strerror(ret));
 				libusb_close(t6usbdev);
 				continue ;
 			}
