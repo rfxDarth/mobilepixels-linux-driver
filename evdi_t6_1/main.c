@@ -1184,103 +1184,103 @@ void* evdi_process(void *userdata)
 			continue;
 	    }
             wait_ready();
-			if(evdi_request_update(pt6evdi->ev_handle, pt6evdi->display_id)) {
-				
-				
-				struct evdi_rect rects[MAX_DIRTS];
-				int rect_count=0;
-				int i = 0 ;
-	#if 0			
-				pthread_mutex_lock(&pt6evdi->image_mutex);
-				if(pt6evdi->jpg_work_process == 1){
-					pt6evdi->jpg_work_process = 0 ;
-					pthread_mutex_unlock(&pt6evdi->image_mutex);
-					continue;
-				}	
-	#endif
-				evdi_grab_pixels(pt6evdi->ev_handle, rects, &rect_count);
-		    //DEBUG_PRINT ("evdi_grab_pixels!\n");
-				
-				#if 0	
-				DEBUG_PRINT("rect_count = %d \n",rect_count);
-				for(i = 0 ; i < rect_count ; i++){
-					DEBUG_PRINT("x1 = %d x2= %d y1=%d y2 =%d\n",rects[i].x1,rects[i].x2,rects[i].y1,rects[i].y2);
-				}
-				#endif
-				//int rgb_size = pt6evdi->Width* pt6evdi->Height* 4; 
-				if(rect_count > 0){
-		        //DEBUG_PRINT ("evdi_request_update s\n");
-				
-				if(list_size(&pt6evdi->jpg_list_queue) < 5 ){
-						unsigned long jpgImageSize = 0;
-						unsigned long tjpgImageSize = 0;
-						char *jpgImage = NULL;
-						char *tjpgImage = NULL;
-						
-						struct jpg_packet *jpacket = (struct jpg_packet *)malloc(sizeof(struct jpg_packet));
-						if(jpacket != NULL){
-					   		tjhandle jpegCompressor = tjInitCompress();
-					   		tjCompress2(jpegCompressor,pt6evdi->video_buffer, pt6evdi->Width, 0,pt6evdi->Height, TJPF_BGRA,
-			  							(unsigned char**)&jpgImage, &jpgImageSize, TJSAMP_420, 95, TJFLAG_FASTDCT );				
-					   		tjDestroy(jpegCompressor);
-					      
-							if(pt6evdi->jpg_rotate > 0 &&  pt6evdi->jpg_rotate < 4){
-							tjhandle jpegtramform = tjInitTransform();
-								tjtransform transform;
-								if(pt6evdi->jpg_rotate == 1)
-							    	transform.op = TJXOP_ROT90; // TJXOP_NONE TJXOP_ROT270 // TJXOP_NONE TJXOP_ROT90;
-							   if(pt6evdi->jpg_rotate ==  2)
-		                        transform.op = TJXOP_ROT180;
-								if(pt6evdi->jpg_rotate == 3)
-		                        transform.op = TJXOP_ROT270;
-								 
-							    transform.options =TJXOPT_TRIM ; 
-							    transform.data = NULL;
-							    transform.customFilter = NULL;
-		                    int rel = tjTransform(jpegtramform, jpgImage, jpgImageSize, 1,(unsigned char**) &tjpgImage, &tjpgImageSize, &transform, TJFLAG_ACCURATEDCT);
-								tjDestroy(jpegtramform);
-								free(jpgImage);
-								if (rel != 0)
-								{
-								    char* err = tjGetErrorStr();
-								    printf("ret = %d error = %s tjpgImageSize = %ld \n",ret,err,tjpgImageSize);
-								}else{
-								 	
-									//t6_save_file(tjpgImage,tjpgImageSize);
-									jpacket->jpgImageSize = tjpgImageSize;
-								jpacket->buffer = tjpgImage;
-									pthread_mutex_lock(&pt6evdi->bulkusb_mutex);
-									list_append(&pt6evdi->jpg_list_queue,jpacket);
-									pthread_mutex_unlock(&pt6evdi->bulkusb_mutex);	
-									
-								 }	
-								
-								
-								
-								
-							}else{
+		if(evdi_request_update(pt6evdi->ev_handle, pt6evdi->display_id)) {
+			
+			
+			struct evdi_rect rects[MAX_DIRTS];
+			int rect_count=0;
+			int i = 0 ;
+#if 0			
+			pthread_mutex_lock(&pt6evdi->image_mutex);
+			if(pt6evdi->jpg_work_process == 1){
+				pt6evdi->jpg_work_process = 0 ;
+				pthread_mutex_unlock(&pt6evdi->image_mutex);
+				continue;
+			}	
+#endif
+			 evdi_grab_pixels(pt6evdi->ev_handle, rects, &rect_count);
+	    //DEBUG_PRINT ("evdi_grab_pixels!\n");
+			
+			#if 0	
+			DEBUG_PRINT("rect_count = %d \n",rect_count);
+			for(i = 0 ; i < rect_count ; i++){
+				DEBUG_PRINT("x1 = %d x2= %d y1=%d y2 =%d\n",rects[i].x1,rects[i].x2,rects[i].y1,rects[i].y2);
+			}
+			#endif
+			//int rgb_size = pt6evdi->Width* pt6evdi->Height* 4; 
+			if(rect_count > 0){
+	        //DEBUG_PRINT ("evdi_request_update s\n");
+			
+			if(list_size(&pt6evdi->jpg_list_queue) < 5 ){
+					unsigned long jpgImageSize = 0;
+					unsigned long tjpgImageSize = 0;
+					char *jpgImage = NULL;
+					char *tjpgImage = NULL;
 					
-							
-								jpacket->jpgImageSize = jpgImageSize;
-							jpacket->buffer = jpgImage;
+					struct jpg_packet *jpacket = (struct jpg_packet *)malloc(sizeof(struct jpg_packet));
+					if(jpacket != NULL){
+				   		tjhandle jpegCompressor = tjInitCompress();
+				   		tjCompress2(jpegCompressor,pt6evdi->video_buffer, pt6evdi->Width, 0,pt6evdi->Height, TJPF_BGRA,
+		  							(unsigned char**)&jpgImage, &jpgImageSize, TJSAMP_420, 95, TJFLAG_FASTDCT );				
+				   		tjDestroy(jpegCompressor);
+				      
+						if(pt6evdi->jpg_rotate > 0 &&  pt6evdi->jpg_rotate < 4){
+						tjhandle jpegtramform = tjInitTransform();
+							tjtransform transform;
+							if(pt6evdi->jpg_rotate == 1)
+						    	transform.op = TJXOP_ROT90; // TJXOP_NONE TJXOP_ROT270 // TJXOP_NONE TJXOP_ROT90;
+						   if(pt6evdi->jpg_rotate ==  2)
+	                        transform.op = TJXOP_ROT180;
+							if(pt6evdi->jpg_rotate == 3)
+	                        transform.op = TJXOP_ROT270;
+							 
+						    transform.options =TJXOPT_TRIM ; 
+						    transform.data = NULL;
+						    transform.customFilter = NULL;
+	                    int rel = tjTransform(jpegtramform, jpgImage, jpgImageSize, 1,(unsigned char**) &tjpgImage, &tjpgImageSize, &transform, TJFLAG_ACCURATEDCT);
+							tjDestroy(jpegtramform);
+							free(jpgImage);
+							if (rel != 0)
+							{
+							    char* err = tjGetErrorStr();
+							    printf("ret = %d error = %s tjpgImageSize = %ld \n",ret,err,tjpgImageSize);
+							}else{
+							 	
+								//t6_save_file(tjpgImage,tjpgImageSize);
+								jpacket->jpgImageSize = tjpgImageSize;
+							jpacket->buffer = tjpgImage;
 								pthread_mutex_lock(&pt6evdi->bulkusb_mutex);
 								list_append(&pt6evdi->jpg_list_queue,jpacket);
-								pthread_mutex_unlock(&pt6evdi->bulkusb_mutex);
-							}
-							//queue_add(pt6evdi->jpg_queue,(void *) jpacket);
+								pthread_mutex_unlock(&pt6evdi->bulkusb_mutex);	
+								
+							 }	
 							
 							
 							
-						}
-				}
-					//DEBUG_PRINT ("evdi_request_update e\n");
-				}
+							
+						}else{
 				
-				//pthread_mutex_unlock(&pt6evdi->image_mutex);
-			}else{
-				set_ready(false);
-				usleep(1000);
+						
+							jpacket->jpgImageSize = jpgImageSize;
+						jpacket->buffer = jpgImage;
+							pthread_mutex_lock(&pt6evdi->bulkusb_mutex);
+							list_append(&pt6evdi->jpg_list_queue,jpacket);
+							pthread_mutex_unlock(&pt6evdi->bulkusb_mutex);
+						}
+						//queue_add(pt6evdi->jpg_queue,(void *) jpacket);
+						
+						
+						
+					}
 			}
+				//DEBUG_PRINT ("evdi_request_update e\n");
+			}
+			
+			//pthread_mutex_unlock(&pt6evdi->image_mutex);
+		}else{
+			set_ready(false);
+			usleep(1000);
+		}
 
 	}
 	
