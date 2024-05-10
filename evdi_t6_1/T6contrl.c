@@ -54,7 +54,7 @@ static int is_T6dev( libusb_device *dev)
 	struct libusb_device_descriptor desc;
 	int rc = libusb_get_device_descriptor( dev, &desc );
 
-	if( LIBUSB_SUCCESS == rc && desc.idVendor == 0x0711 && (desc.idProduct == 0x5600 || desc.idProduct == 0x5601 || desc.idProduct == 0x5621))
+	if( LIBUSB_SUCCESS == rc && desc.idVendor == 0x0711 && (desc.idProduct == 0x5600 || desc.idProduct == 0x5601 || desc.idProduct == 0x560b || desc.idProduct == 0x5621))
     	return 1;
 	else if(LIBUSB_SUCCESS == rc && desc.idVendor == 0x03f0 && desc.idProduct == 0x0182)	
 		return 1;
